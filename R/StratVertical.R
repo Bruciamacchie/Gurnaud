@@ -2,8 +2,9 @@
 #'
 #' @description Calcul de l'indicateur stratification verticale à partir d'un MNH
 #'
-#' @param Lat = latitude.
-#' @param Lon = longitude.
+#' @param r = MNH
+#' @param shp = unités de gestion
+#' @param pas = résolution (entier impair)
 #'
 #' @import tidyverse
 #' @import terra
@@ -14,7 +15,6 @@
 #'
 #' @examples
 #' \donttest{
-#' librarian::shelf(terra,sf,stars,tidyverse)
 #'
 #' }
 #

@@ -7,16 +7,17 @@
 StratVertical(r, shp, pas = 25)
 }
 \arguments{
-\item{Lat}{= latitude.}
+\item{r}{= MNH}
 
-\item{Lon}{= longitude.}
+\item{shp}{= unités de gestion}
+
+\item{pas}{= résolution (entier impair)}
 }
 \description{
 Calcul de l'indicateur stratification verticale à partir d'un MNH
 }
 \examples{
 \donttest{
-librarian::shelf(terra,sf,stars,tidyverse)
 
 }
 }

@@ -1,19 +1,40 @@
-library(raster)
+#' Modèle numérique de hauteur
+#'
+#' @description création d'un MNH par différence entre un MNS et un MNT
+#'
+#' @param r1 = MNS
+#' @param r2 = MNT
+#' @param resol = résolution (en m)
+#'
+#' @import tidyverse
+#' @import terra
+#'
+#' @author Bruciamacchie Max
+#'
+#' @examples
+#' \donttest{
+#' librarian::shelf(terra,sf,tidyverse)
+#'
+#' }
+#
+#' @export
 
-mns <- raster("/Users/maxbruciamacchie/pCloudSync/EnCours/Ecole/DonneesBrutes/Rasters/MNS.tif") %>%
-  aggregate(fact=5)
+# r1 = mns
+# r2 = mnt
 
-mnt <- raster("/Users/maxbruciamacchie/pCloudSync/EnCours/Ecole/DonneesBrutes/Rasters/MNT.tif") %>%
-  resample(mns)
+CreateMnh <- function(r1, r2, resol=1) {
+  coefs <- resol/res(r1)
 
-mnh = mns - mnt
-mnh[mnh < 0] <- 0
+  r1 <- r1 |>
+    aggregate(fact=coefs)
 
-cad <- st_read("/Users/maxbruciamacchie/pCloudSync/EnCours/Ecole/DonneesBrutes/Vecteurs/Parcelles.gpkg") %>%
-  filter(commune == "54578" & section == "AN" & numero == "11")
+  r2 <- r2 |>
+    resample(r1)
 
-mnh <- mnh %>%
-  crop(cad) %>%
-  mask(cad)
+  mnh = r1 - r2
+  mnh[mnh < 0] <- 0
 
-plot(mnh)
+  return(mnh)
+}
+
+
