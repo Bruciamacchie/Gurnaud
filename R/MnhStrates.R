@@ -20,7 +20,7 @@
 #
 #' @export
 
-StratVertical <- function(r, shp, pas=25) {
+MnhStrates <- function(r, shp, pas=25) {
   names(r) <- "mnh"
 
   shp <- shp |>
@@ -60,7 +60,4 @@ StratVertical <- function(r, shp, pas=25) {
   names(out) <- c("map", "tab")
   return(out)
 }
-
-
-git remote add origin https://github.com/Bruciamacchie/Gurnaud.git
 

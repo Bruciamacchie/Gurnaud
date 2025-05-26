@@ -18,11 +18,9 @@
 #' }
 #
 #' @export
+#'
 
-# r1 = mns
-# r2 = mnt
-
-CreateMnh <- function(r1, r2, resol=1) {
+MnhCreate <- function(r1, r2, resol=1) {
   coefs <- resol/res(r1)
 
   r1 <- r1 |>
