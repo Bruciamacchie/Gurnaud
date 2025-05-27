@@ -16,12 +16,6 @@ MnhCreate(mns, mnt, resol = 1)
 \description{
 création d'un MNH par différence entre un MNS et un MNT
 }
-\examples{
-\donttest{
-librarian::shelf(terra,sf,tidyverse)
-
-}
-}
 \author{
 Bruciamacchie Max
 }
