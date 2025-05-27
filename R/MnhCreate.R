@@ -18,11 +18,11 @@ MnhCreate <- function(mns, mnt, resol=1) {
   if(res(mns[1]) < 1) {
     coefs <- resol/res(mns)
     mns <- mns |>
-      aggregate(fact=coefs)
+      terra::aggregate(fact=coefs)
   }
 
   mnt <- mnt |>
-    resample(mns)
+    terra::resample(mns)
 
   mnh = mns - mnt
   mnh[mnh < 0] <- 0
