@@ -41,9 +41,9 @@ MnhStrates <- function(r, shp, pas=25) {
     summarise(Haut = mean(mnh))
 
   # ---------- stratification
-  map <- focal(r1, w=pas, fun=sd, na.rm=TRUE)
+  carte <- focal(r1, w=pas, fun=sd, na.rm=TRUE)
 
-  t2 <- map |>
+  t2 <- carte |>
     st_as_stars() |>
     st_as_sf(as_points=T) |>
     st_intersection(shp) |>
@@ -56,8 +56,8 @@ MnhStrates <- function(r, shp, pas=25) {
   t3 <- t1 |>
     left_join(t2, by = join_by(NumUG))
 
-  out <- list(map, t3)
-  names(out) <- c("map", "tab")
+  out <- list(carte, t3)
+  names(out) <- c("carte", "tab")
   return(out)
 }
 
