@@ -1,0 +1,263 @@
+---
+title: "Ecole de Gurnaud"
+subtitle: "Indicateurs"
+author: "Bruciamacchie Max"
+date: juin 2025
+format: 
+  pdf:
+    toc: true
+    toc-title: "Table des matières"
+    lof: true
+    lot: true
+    number-sections: true
+    fig-title-prefix: " "
+    tbl-title-prefix: " "
+    colorlinks: true
+    fig-pos: 'h'
+crossref: 
+  lot-title: "Liste des tableaux"
+  lof-title: "Liste des figures"
+editor: visual
+execute:
+  echo: false
+  message: false
+  warning: false
+  scipen: 999
+---
+
+\newpage
+
+## Modèle numérique de hauteur
+
+En préambule il faut activer la librairie **Gurnaud** ainsi que les librairies permettant de manipuler les objets géoréférencés.
+
+```{r , echo=TRUE}
+library(Gurnaud)
+librarian::shelf(terra, sf, tidyverse,raster, patchwork)
+```
+
+### Création
+
+Ils peuvent être téléchargés directement sur le site de l'IGN ou en cas de non disponibilité, calculé grâce à la fonction **`MnhCreate`** qui possède 3 arguments : le modèle numérique de surface (MNS), le modèle numérique de terrain (MNT) ainsi qu’un paramètre qui dégrade la résolution du MNS. Afin que la manipulation des fichiers soit rapide, la résolution des rasters en entrée ne sera pas inférieure à 1m. Le MNH s'obtient par simple différence entre le MNS et le MNT, mais les deux rasters doivent au préalable avoir le même système de projection, les mêmes origine et zone d'extension, ainsi que résolution.
+
+```{r , eval=F, echo=TRUE}
+mnh <- MnhCreate(MNS, MNT, resol=1)
+```
+
+### Carte des peuplements
+
+Le MNH peut être découpé en tranches de hauteur correspondant à des types d'interventions, dégagements de semis, compléments de plantations, nettoiements, premières éclaircies sous forme de bois énergie, coupes d'amélioration dans les jeunes futaies, ... (voir @fig-Peuplt). Cette pré-cartographie facilite la création de la carte définitive.
+
+![Précartographie des peuplements à l'aide d'un MNH](Images/Peuplements.pdf){#fig-Peuplt fig-align="center"}
+
+```{r, cache=TRUE, eval=F, echo=F}
+data(ug)
+
+data(mnh)
+mnh <- mnh |> 
+  rast() |> 
+  crop(ug) |>
+  project("EPSG:2154") |>
+  mask(ug)
+
+shp <- classify(mnh, c(0,5,12,17,21,seq(24,40,4)), include.lowest=T, brackets=T, right=T) |>
+  as.polygons() |>
+  st_as_sf()|>
+  mutate(mnh = factor(mnh, levels = c("[0–5]","(5–12]","(12–17]","(17–21]","(21–24]","(24–28]","(28–32]","(32–36]","(36–40]")))
+
+
+ggplot() +
+  geom_sf(data=shp, aes(fill = mnh), linewidth=0.1) +
+  coord_sf(datum = st_crs(2154)) +
+  theme_void() +
+  scale_fill_discrete(type=RColorBrewer::brewer.pal(9, "YlGn")) +
+  geom_sf(data=ug, fill=NA, color='blue')
+
+```
+
+### Stratification verticale
+
+#### Ecart-type des hauteurs
+
+La fonction **`MnhStrates`** calcule pour chaque pixel l'écart-type des hauteurs des 25x25 pixels environnants. Elle renvoie 2 informations, la carte de la variabilité locale des hauteurs ainsi que ces valeurs de variabilité sous la forme d'un tableau. L'échelle de la @fig-SDhauteur correspond aux écart-types des hauteurs. Des écart-types inférieurs à 2m correspondent à des hauteurs très homogènes. Des écart-types supérieurs à 6m correspondent à de fortes variations de hauteurs liées à des perturbations biotiques (tempête, ...) ou abiotiques (coupes progressives de régénération, coupes fortes).
+
+```{r, echo=TRUE, cache=T}
+data(mnh)
+mnh <- rast(mnh)
+data(ug)
+
+res <- MnhStrates(mnh, ug) 
+```
+
+```{r, eval=F, echo=T}
+plot(res$carte, box=F, axes=F)
+plot(st_geometry(ug), add=TRUE)
+```
+
+![Variabilité locale des hauteurs.](Images/SDHauteur.pdf){#fig-SDhauteur fig-align="center"}
+
+```{r, eval=F}
+ClasseHaut = classify(mnh, c(0,5,12,17,21,seq(24,40,4)), include.lowest=T, brackets=T, right=T)
+
+entropie <- function(x) {
+  x <- na.omit(x)
+  if (length(x) == 0) return(NA)
+  p <- table(x) / length(x)
+  -sum(p * log2(p))
+}
+
+r_entropy <- focal(ClasseHaut, w = 25, fun = entropie)
+
+```
+
+#### Comparaison écart-type et entropie
+
+En écologie, l'entropie sert à mesurer la régularité, la bonne répartition des valeurs, dans notre cas par classe de hauteur. Elle se calcule à l'aide de la formule suivante :
+
+$$
+entropie = -\sum_{i}^{} p_{i} log_{2}\left( p_{i} \right)
+$$
+
+```{r IndStrat, eval=F, fig.cap="recherche d'indicateurs de stratification verticale."}
+names(r_entropy) = "focal_entropy"
+
+# r1 <- st_as_stars(res$carte)
+# r2 <- st_as_stars(r_entropy)
+# s = c(res$carte, r_entropy)
+# plot(s, box=F, axes=F)
+
+g1 <- res$carte |> 
+  st_as_stars() |> 
+  as.data.frame(xy = TRUE) |> 
+  na.omit() |>
+  ggplot() + 
+  geom_raster(aes(x = x, y = y, fill = focal_sd)) +
+  scale_fill_viridis_c(option = "turbo") +
+  coord_equal() +
+  theme_void()
+
+df <- r_entropy |> 
+  st_as_stars() |> 
+  as.data.frame(xy = TRUE) |> 
+  na.omit()
+names(df)[3] = "focal_entropy"
+
+g2 <- df |> 
+  ggplot() + 
+  geom_raster(aes(x = x, y = y, fill = focal_entropy)) +
+  scale_fill_viridis_c(option = "turbo") +
+  geom_sf(data=ug) +
+  coord_equal() +
+  theme_void()
+
+g1 + g2
+
+```
+
+![Recherche d'indicateurs de stratification verticale](Images/LookStrat.pdf){#fig-LookStrat fig-align="center"}
+
+#### Indicateurs basés sur l'entropie
+
+Cette variabilité peut être résumée par unité de gestion. La @fig-EvolStrat présente quelques unités de gestion certaines en phase de régénération, d'autres sous forme de jeunes futaies, d'anciens taillis-sous-futaie, avec ou sans perturbation. Parmi ces dernières certaines sont liées à la tempête de 1999 (unités de gestion 35 et 22), d'autres à la gestion pratiquée; c'est le cas de l'unité de gestion n°20 qui a fait l'objet de coupes progressives de régénération au moins sur une partie.
+
+```{r ,eval=F, echo=F}
+
+  t1 <- st_as_stars(mnh) |>
+    st_as_sf(as_points=T) |>
+    st_intersection(ug) |>
+    st_drop_geometry() |>
+    group_by(NumUG) |>
+    summarise(Haut = mean(mnh))
+  
+   t2 <- res$carte |>
+    st_as_stars() |>
+    st_as_sf(as_points=T) |>
+    st_intersection(ug) |>
+    st_drop_geometry() |>
+    group_by(NumUG) |>
+    summarise(Moy_sd = mean(focal_sd),
+              SD_sd = sd(focal_sd))
+   
+   t3 <- r_entropy |>
+    st_as_stars() |>
+    st_as_sf(as_points=T) |>
+    st_intersection(ug) |>
+    st_drop_geometry()
+   names(t3)[1] = "focal_entropy"
+   t3 <- t3 |>
+    group_by(NumUG) |>
+    summarise(Moy_entropy = mean(focal_entropy),
+              SD_entropy = sd(focal_entropy))
+
+  t4 <- t1 |>
+    left_join(t2, by = join_by(NumUG)) |> 
+    left_join(t3, by = join_by(NumUG))
+    
+
+  g1 <- t4 |> pivot_longer(cols = Moy_sd:SD_entropy) |> 
+    filter(name %in% c("Moy_entropy", "SD_entropy")) |>
+    ggplot(aes(x=Haut, y=value, label = NumUG)) +
+    geom_point() +
+    facet_wrap(~ name, scales="free_y") +
+    geom_text(hjust=0, vjust=0) +
+    theme_bw() +
+    labs(y="")
+  
+  g2 <- t4 |> 
+    ggplot(aes(x=Moy_entropy, y=SD_entropy, label = NumUG)) +
+    geom_point() +
+    geom_text(hjust=0, vjust=0) +
+    theme_bw()
+  
+  g1 + g2
+
+```
+
+![Indicateurs basés sur la régularité (entropie)](Images/EvolStrat.pdf){#fig-EvolStrat fig-align="center" fig-pos='H'}
+
+
+
+### Cartographie automatique des stations
+
+
+### Krigeage
+
+
+
+\newpage
+
+## Services écosystémiques
+
+### Carbone
+
+### Qualité de l'eau
+
+Dans la @fig-Maryland , l'astérisque rouge correspond à un captage d'eau. Dans cette figure les points de différentes couleurs sont extraits de la base de données de l'université du Maryland qui cartographie les années de coupes fortes. Par exemple 1 = 2001, …. 5 = 2005, etc. La résolution du raster fourni est d’environ 25m. Dans cette figure la série de points verts au nord et en amont de la source correspond à l’année 2011.
+
+![Impact d'une coupe forte](Images/Maryland.pdf){#fig-Maryland fig-align="center"}
+
+\newpage
+
+## Fonction économique
+
+### Calcul possibilité
+
+### Gestion des risques
+
+#### perturbations
+
+#### altérations
+
+#### FORDEAD
+
+\newpage
+
+## Changements globaux
+
+### ClimEssences ou zoom 50
+
+### Indicateurs du climat
+
+## Biodiversité
+
+### Dendro-Microhabitats
